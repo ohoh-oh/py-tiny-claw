@@ -28,7 +28,7 @@ def main():
         r = MockRegistry()
         eng = AgentEgine(p,r,work_dir)
         try:
-            eng.run("你帮我查看当前目录的文件")
+            eng.run("帮我查看当前目录的文件")
         except Exception as e:
             sys.exit(f"引擎崩溃：{e}")
 if __name__ == "__main__":
