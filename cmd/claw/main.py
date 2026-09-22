@@ -1,43 +1,54 @@
 import logging
 import os
 import sys
-from internal.engine.loop import AgentEgine
-from internal.provider.interface import LLMProvider
-from internal.schema.message import (Message,ROLE_ASSISTANT,ToolCall,ToolResult,ToolDefinition
-)
+from internal.engine.loop import AgentEngine
+from internal.provider.openai import new_deepseek_provider
+from internal.schema.message import ToolCall, ToolDefinition, ToolResult
 from internal.tools.registry import Registry
-logging.basicConfig(level=logging.INFO,format="%(asctime)s %(message)s",
-datefmt="%Y/%m/%d %H:%M:%S")
-class MockProvider(LLMProvider):
-    def __init__(self):
-        self.turn = 0
-    def generate(self, msgs, _tools):
-        if not _tools:
-             return Message(role = ROLE_ASSISTANT,content = "【推理中】目标是检查文件。我不能直接盲猜," \
-             "我需要先调用下bash工具执行ls命令" \
-             "看看当前目录下有什么,然后再做定夺")
-        self.turn += 1
-        if self.turn == 1:
-            return Message(role = ROLE_ASSISTANT,content="我要执行我刚才计划的步骤了。",tool_calls=[ToolCall(id = "call_123", name = "bash",arguments='{"command":"ls -la"}'),],)
-        return Message(role=ROLE_ASSISTANT,content="根据工具返回的结果,我看到了main.py,任务圆满完成!",)
 
-        # if self.turn == 1:
-        #     return Message(role=ROLE_ASSISTANT,content="让我来看看当前目录下有什么文" \
-        #     "件。",tool_calls=[ToolCall(id="call_123",name="bash",arguments='{"command":"ls -la"}'),],)
-        # return Message(role=ROLE_ASSISTANT,content="我看到了文件列表，里面包含main.py,任务完成！",)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%Y/%m/%d %H:%M:%S")
+log = logging.getLogger(__name__)
+
+
 class MockRegistry(Registry):
     def get_available_tools(self):
-        return [ToolDefinition(name = "bash")]
-    def execute(self,call:ToolCall) -> ToolResult:
-        return ToolResult(tool_call_id=call.id,output="-rw-r--r--  1 user group 234 Oct 24 10:00 main.py\n",is_error=False,)
+        return [
+            ToolDefinition(
+                name="get_weather",
+                description="获取指定城市的当前天气情况。",
+                input_schema={
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                    "required": ["city"],
+                },
+            )
+        ]
+
+    def execute(self, call: ToolCall) -> ToolResult:
+        log.info("  -> [Mock 工具执行] 获取 %s 的天气中...", call.name)
+        return ToolResult(
+            tool_call_id=call.id,
+            output="API 返回：今天是晴天，气温 25 度。",
+            is_error=False,
+        )
+
+
 def main():
-        work_dir = os.getcwd()
-        p = MockProvider()
-        r = MockRegistry()
-        eng = AgentEgine(p,r,work_dir,True)
-        try:
-            eng.run("帮我查看当前目录的文件")
-        except Exception as e:
-            sys.exit(f"引擎崩溃：{e}")
+    api_key = os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        sys.exit("请先导出 DEEPSEEK_API_KEY 环境变量")
+
+    work_dir = os.getcwd()
+    llm_provider = new_deepseek_provider()
+    registry = MockRegistry()
+    eng = AgentEngine(llm_provider, registry, work_dir, True)
+    prompt = "我想去北京跑步，帮我查查天气适合吗？"
+
+    try:
+        eng.run(prompt)
+    except Exception as e:
+        sys.exit(f"引擎运行崩溃: {e}")
+
+
 if __name__ == "__main__":
-        main()  
+    main()

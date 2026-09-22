@@ -3,7 +3,7 @@ from internal.provider.interface import LLMProvider
 from internal.schema.message import Message,ROLE_SYSTEM,ROLE_USER
 from internal.tools.registry import Registry
 log = logging.getLogger(__name__)
-class AgentEgine:
+class AgentEngine:
     """Agent引擎：持有Provider(大脑与registry(手脚)，并锁定一个工作区目录。)"""
     def __init__(self,provider:LLMProvider,registry:Registry,work_dir:str,enable_thinking:bool):
         self.provider = provider
