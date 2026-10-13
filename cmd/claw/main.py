@@ -1,48 +1,33 @@
 import logging
 import os
 import sys
+
 from internal.engine.loop import AgentEngine
 from internal.provider.openai import new_deepseek_provider
-from internal.schema.message import ToolCall, ToolDefinition, ToolResult
-from internal.tools.registry import Registry
+from internal.tools.bash import BashTool
+from internal.tools.read_file import ReadFileTool
+from internal.tools.registry import new_registry
+from internal.tools.write_file import WriteFileTool
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%Y/%m/%d %H:%M:%S")
-log = logging.getLogger(__name__)
-
-
-class MockRegistry(Registry):
-    def get_available_tools(self):
-        return [
-            ToolDefinition(
-                name="get_weather",
-                description="获取指定城市的当前天气情况。",
-                input_schema={
-                    "type": "object",
-                    "properties": {"city": {"type": "string"}},
-                    "required": ["city"],
-                },
-            )
-        ]
-
-    def execute(self, call: ToolCall) -> ToolResult:
-        log.info("  -> [Mock 工具执行] 获取 %s 的天气中...", call.name)
-        return ToolResult(
-            tool_call_id=call.id,
-            output="API 返回：今天是晴天，气温 25 度。",
-            is_error=False,
-        )
 
 
 def main():
-    api_key = os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY")
-    if not api_key:
+    if not os.getenv("DEEPSEEK_API_KEY"):
         sys.exit("请先导出 DEEPSEEK_API_KEY 环境变量")
 
     work_dir = os.getcwd()
-    llm_provider = new_deepseek_provider()
-    registry = MockRegistry()
-    eng = AgentEngine(llm_provider, registry, work_dir, True)
-    prompt = "我想去北京跑步，帮我查查天气适合吗？"
+    llm_provider = new_deepseek_provider("glm-4.5-air")
+    registry = new_registry()
+    registry.register(ReadFileTool(work_dir))
+    registry.register(WriteFileTool(work_dir))
+    registry.register(BashTool(work_dir))
+    eng = AgentEngine(llm_provider, registry, work_dir, False)
+    prompt = """请帮我执行以下操作：
+1. 用 bash 查看一下我当前电脑的 Python 版本。
+2. 帮我写一个简单的 helloworld.py 文件，输出 "Hello, py-tiny-claw!"。
+3. 用 bash 运行这个 python 文件，确认它能正常工作。
+"""
 
     try:
         eng.run(prompt)

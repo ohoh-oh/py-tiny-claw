@@ -59,7 +59,7 @@ class AgentEngine:
             try:
                 response_msg = self.provider.generate(context_history,available_tools)
             except Exception as e:
-                raise RuntimeError(f"模型生成失败：{e}")from e
+                raise RuntimeError(f"模型生成失败：{e}") from e
             context_history.append(response_msg)
             if response_msg.content != "":
                 print(f"模型：{response_msg.content}")
